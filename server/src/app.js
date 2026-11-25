@@ -27,3 +27,6 @@ app.listen(port, () => {
 
 const digitalRouter = require('./routes/digital');
 app.use('/api/digital', digitalRouter);
+
+const notesRouter = require('./routes/notes');
+app.use('/api/notes', notesRouter);
