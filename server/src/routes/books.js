@@ -85,4 +85,46 @@ router.get('/categories', async (req, res) => {
   }
 });
 
+// GET /api/books/:id
+router.get('/:id', async (req, res) => {
+  const bookId = Number(req.params.id);
+  if (!Number.isInteger(bookId) || bookId <= 0) {
+    return res.status(400).json({ error: 'Invalid book ID' });
+  }
+
+  try {
+    const bookResult = await pool.query(
+      `SELECT b.id, b.title, b.author, b.category, b.isbn, b.has_digital, b.price,
+              COUNT(c.id) FILTER (WHERE c.status = 'available')::int AS available_copies,
+              COUNT(c.id)::int AS total_copies
+       FROM books b
+       LEFT JOIN book_copies c ON c.book_id = b.id
+       WHERE b.id = $1
+       GROUP BY b.id`,
+      [bookId]
+    );
+
+    if (bookResult.rowCount === 0) {
+      return res.status(404).json({ error: 'Book not found' });
+    }
+
+    const readersResult = await pool.query(
+      `SELECT COUNT(*)::int AS active_students
+       FROM digital_access da
+       JOIN users u ON da.user_id = u.id
+       WHERE da.book_id = $1 AND da.is_active = TRUE AND da.expires_at > NOW() AND u.role != 'faculty'`,
+      [bookId]
+    );
+
+    res.json({
+      ...bookResult.rows[0],
+      active_student_readers: readersResult.rows[0].active_students,
+      max_student_readers: 30,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to load book details' });
+  }
+});
+
 module.exports = router;
