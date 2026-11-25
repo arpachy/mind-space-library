@@ -33,3 +33,6 @@ app.use('/api/notes', notesRouter);
 
 const loansRouter = require('./routes/loans');
 app.use('/api/loans', loansRouter);
+
+const purchasesRouter = require('./routes/purchases');
+app.use('/api/purchases', purchasesRouter);

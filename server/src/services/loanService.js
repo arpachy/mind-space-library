@@ -1,10 +1,9 @@
 const pool = require('../db/pool');
 
-const RESERVATION_HOURS = 24; // 1-day advance booking window
-const LOAN_DAYS = 7;          // 7-day borrowing duration
-const OVERDUE_FINE = 100;     // 100 BDT fine after 7 days
+const RESERVATION_HOURS = 24; 
+const LOAN_DAYS = 7;         
+const OVERDUE_FINE = 100;     
 
-// Release expired reservations automatically before checking availability
 async function releaseExpiredReservations(client) {
   const expired = await client.query(
     `UPDATE physical_loans
@@ -22,14 +21,14 @@ async function releaseExpiredReservations(client) {
   }
 }
 
-// 1. Reserve a physical copy (1-day advance booking, First-Come-First-Serve)
+
 async function reserveBookCopy(userId, bookId) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     await releaseExpiredReservations(client);
 
-    // Prevent duplicate active reservation/loan of the same book by the same user
+    
     const existing = await client.query(
       `SELECT id FROM physical_loans
        WHERE user_id = $1 AND book_id = $2 AND status IN ('reserved', 'borrowed')`,
@@ -39,7 +38,7 @@ async function reserveBookCopy(userId, bookId) {
       throw { status: 409, message: 'You already have an active reservation or loan for this book' };
     }
 
-    // First-Come-First-Serve lock on 1 available physical copy (Challenge A05)
+   
     const copyRes = await client.query(
       `SELECT id, copy_number FROM book_copies
        WHERE book_id = $1 AND status = 'available'
@@ -86,7 +85,7 @@ async function reserveBookCopy(userId, bookId) {
   }
 }
 
-// 2. Staff issues the reserved book -> Starts 7-day loan
+
 async function issueReservedBook(staffId, loanId) {
   const client = await pool.connect();
   try {
@@ -130,7 +129,7 @@ async function issueReservedBook(staffId, loanId) {
   }
 }
 
-// 3. Staff processes book return -> Calculates 100 BDT fine if past 7 days
+
 async function returnBorrowedBook(staffId, loanId) {
   const client = await pool.connect();
   try {
