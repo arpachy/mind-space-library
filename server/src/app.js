@@ -30,3 +30,6 @@ app.use('/api/digital', digitalRouter);
 
 const notesRouter = require('./routes/notes');
 app.use('/api/notes', notesRouter);
+
+const loansRouter = require('./routes/loans');
+app.use('/api/loans', loansRouter);
