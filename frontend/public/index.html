@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mind Space Library — Digital & Physical Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,500;0,600;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f8f9fb;
+      --surface: #ffffff;
+      --surface-alt: #f1f4f8;
+      --primary: #1e3a5f;
+      --primary-hover: #152944;
+      --accent: #0d9488;
+      --accent-soft: #ccfbf1;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --danger: #dc2626;
+      --warning: #d97706;
+      --success: #16a34a;
+      --radius: 12px;
+      --shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Navigation */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1.25rem;
+      height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-weight: 700;
+      font-size: 1.15rem;
+      color: var(--primary);
+      cursor: pointer;
+    }
+    .brand-icon {
+      width: 34px;
+      height: 34px;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      font-family: 'Lora', serif;
+      font-size: 1.1rem;
+    }
+    nav {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      overflow-x: auto;
+    }
+    .nav-btn {
+      background: transparent;
+      border: none;
+      padding: 0.5rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: 0.2s;
+    }
+    .nav-btn:hover { background: var(--surface-alt); color: var(--text); }
+    .nav-btn.active { background: var(--primary); color: #fff; }
+
+    .user-area {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 0.85rem;
+      display: grid;
+      place-items: center;
+    }
+
+    /* Main Layout */
+    main {
+      flex: 1;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 1.75rem 1.25rem 3rem;
+    }
+    .page { display: none; animation: fadeIn 0.25s ease; }
+    .page.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Components */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      padding: 0.6rem 1.15rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-accent { background: var(--accent); color: #fff; }
+    .btn-accent:hover { opacity: 0.92; }
+    .btn-outline { background: var(--surface); border-color: var(--border); color: var(--text); }
+    .btn-outline:hover { background: var(--surface-alt); }
+    .btn-sm { padding: 0.4rem 0.75rem; font-size: 0.82rem; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      box-shadow: var(--shadow);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge-green { background: #dcfce7; color: var(--success); }
+    .badge-amber { background: #fef3c7; color: var(--warning); }
+    .badge-blue { background: #e0f2fe; color: #0284c7; }
+
+    /* Hero & Stats */
+    .hero {
+      background: linear-gradient(135deg, var(--primary) 0%, #2b5486 100%);
+      color: #fff;
+      border-radius: 16px;
+      padding: 2.25rem;
+      margin-bottom: 1.75rem;
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 1.5rem;
+      align-items: center;
+    }
+    .hero h1 { font-family: 'Lora', serif; font-size: 2rem; margin-bottom: 0.65rem; line-height: 1.25; }
+    .hero p { color: #cbd5e1; margin-bottom: 1.25rem; font-size: 0.98rem; }
+    .hero-search {
+      display: flex;
+      background: #fff;
+      padding: 0.35rem;
+      border-radius: 10px;
+      gap: 0.4rem;
+    }
+    .hero-search input {
+      flex: 1;
+      border: none;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.95rem;
+      outline: none;
+      color: var(--text);
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card h3 { font-size: 1.65rem; color: var(--primary); margin: 0.25rem 0; }
+    .stat-card span { font-size: 0.85rem; color: var(--text-muted); }
+
+    /* Book Grid */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .book-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1.25rem;
+    }
+    .book-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.2s;
+    }
+    .book-card:hover { transform: translateY(-3px); }
+    .book-cover {
+      height: 150px;
+      border-radius: 8px;
+      background: var(--surface-alt);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 1rem;
+      margin-bottom: 0.9rem;
+      color: #fff;
+      font-family: 'Lora', serif;
+      font-weight: 600;
+    }
+    .book-title { font-weight: 700; font-size: 1.02rem; margin-bottom: 0.2rem; }
+    .book-author { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.65rem; }
+    .book-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+
+    /* Filters */
+    .filter-bar {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .input, select, textarea {
+      padding: 0.6rem 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 0.92rem;
+      background: var(--surface);
+      color: var(--text);
+    }
+    .input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+
+    /* Book Detail */
+    .detail-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+    .detail-cover {
+      height: 360px;
+      border-radius: 14px;
+      padding: 1.5rem;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      font-family: 'Lora', serif;
+      font-size: 1.35rem;
+    }
+
+    /* Reader & Notes */
+    .reader-layout {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr;
+      gap: 1.5rem;
+    }
+    .reader-paper {
+      font-family: 'Lora', serif;
+      font-size: 1.08rem;
+      line-height: 1.85;
+      padding: 2rem;
+      background: #fffdf9;
+    }
+
+    /* Tables */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { padding: 0.85rem; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background: var(--surface-alt); font-weight: 600; color: var(--text-muted); }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      display: none;
+      place-items: center;
+      z-index: 200;
+      padding: 1rem;
+    }
+    .modal-backdrop.open { display: grid; }
+    .modal {
+      background: var(--surface);
+      border-radius: 14px;
+      max-width: 420px;
+      width: 100%;
+      padding: 1.5rem;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 1.25rem;
+      right: 1.25rem;
+      background: var(--primary);
+      color: #fff;
+      padding: 0.75rem 1.2rem;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      box-shadow: var(--shadow);
+      transform: translateY(120%);
+      transition: 0.3s;
+      z-index: 300;
+    }
+    .toast.show { transform: translateY(0); }
+
+    @media (max-width: 820px) {
+      .hero, .detail-layout, .reader-layout { grid-template-columns: 1fr; }
+      .detail-cover { height: 220px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="nav-container">
+    <div class="brand" onclick="navigate('home')">
+      <div class="brand-icon">M</div>
+      <span>Mind Space Library</span>
+    </div>
+
+    <nav id="mainNav">
+      <button class="nav-btn active" data-page="home" onclick="navigate('home')">Home</button>
+      <button class="nav-btn" data-page="catalog" onclick="navigate('catalog')">Catalog</button>
+      <button class="nav-btn" data-page="shelf" onclick="navigate('shelf')">My Shelf</button>
+      <button class="nav-btn" data-page="reader" onclick="navigate('reader')">Reader & Notes</button>
+      <button class="nav-btn" data-page="staff" onclick="navigate('staff')">Staff Counter</button>
+    </nav>
+
+    <div class="user-area">
+      <div class="avatar" id="userAvatar">GU</div>
+      <span id="userNameDisplay" style="font-size:0.88rem;font-weight:600;">Guest</span>
+      <button class="btn btn-outline btn-sm" id="authActionBtn" onclick="openAuthModal()">Sign In</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- 1. HOME PAGE -->
+  <section id="page-home" class="page active">
+    <div class="hero">
+      <div>
+        <h1>A quiet space for deep reading & academic discovery.</h1>
+        <p>Browse physical stacks, reserve study seats, read digital editions, and sync personal margin notes across devices.</p>
+        <div class="hero-search">
+          <input type="text" id="heroSearchInput" placeholder="Search title, author, ISBN, or subject..." onkeyup="if(event.key==='Enter') searchFromHero()">
+          <button class="btn btn-accent" onclick="searchFromHero()">Search</button>
+        </div>
+      </div>
+      <div class="card" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); color:#fff;">
+        <div style="font-size:0.82rem; text-transform:uppercase; letter-spacing:0.05em; opacity:0.85;">Live Floor Status</div>
+        <h2 style="font-size:1.75rem; margin:0.35rem 0;" id="seatCounter">42 / 60 Seats Open</h2>
+        <p style="font-size:0.88rem; margin-bottom:1rem; color:#e2e8f0;">Quiet Zone (Floor 2) • Open until 10:00 PM</p>
+        <button class="btn btn-sm" style="background:#fff; color:var(--primary);" onclick="reserveSeat()">Reserve Reading Desk</button>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="card stat-card">
+        <span>Total Volumes</span>
+        <h3 id="statTotalBooks">14,280</h3>
+        <span>Print & Digital</span>
+      </div>
+      <div class="card stat-card">
+        <span>Available Now</span>
+        <h3 id="statAvailableBooks">11,940</h3>
+        <span>Ready for instant checkout</span>
+      </div>
+      <div class="card stat-card">
+        <span>My Active Loans</span>
+        <h3 id="statMyLoans">0</h3>
+        <span>Due within 14 days</span>
+      </div>
+      <div class="card stat-card">
+        <span>Saved Study Notes</span>
+        <h3 id="statMyNotes">0</h3>
+        <span>Synced to cloud</span>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <h2>Featured & Recently Added</h2>
+      <button class="btn btn-outline btn-sm" onclick="navigate('catalog')">View Full Catalog →</button>
+    </div>
+    <div class="book-grid" id="homeFeaturedGrid"></div>
+  </section>
+
+  <!-- 2. CATALOG PAGE -->
+  <section id="page-catalog" class="page">
+    <div class="section-header">
+      <h2>Library Catalog</h2>
+      <span id="catalogCount" style="color:var(--text-muted); font-size:0.9rem;">Showing all books</span>
+    </div>
+
+    <div class="filter-bar">
+      <input type="text" class="input" id="catalogSearch" placeholder="Filter by title or author..." style="flex:1; min-width:220px;" oninput="renderCatalog()">
+      <select id="catalogCategory" onchange="renderCatalog()">
+        <option value="All">All Categories</option>
+        <option value="Computer Science">Computer Science</option>
+        <option value="Philosophy">Philosophy</option>
+        <option value="Literature">Literature</option>
+        <option value="Economics">Economics</option>
+        <option value="Psychology">Psychology</option>
+      </select>
+      <select id="catalogAvailability" onchange="renderCatalog()">
+        <option value="All">All Status</option>
+        <option value="Available">Available Only</option>
+      </select>
+    </div>
+
+    <div class="book-grid" id="catalogGrid"></div>
+  </section>
+
+  <!-- 3. BOOK DETAIL PAGE -->
+  <section id="page-detail" class="page">
+    <button class="btn btn-outline btn-sm" style="margin-bottom:1.25rem;" onclick="navigate('catalog')">← Back to Catalog</button>
+    <div id="bookDetailContainer"></div>
+  </section>
+
+  <!-- 4. MY SHELF PAGE -->
+  <section id="page-shelf" class="page">
+    <div class="section-header">
+      <h2>My Shelf & Borrowed Books</h2>
+      <span class="badge badge-blue">Max 5 Active Loans</span>
+    </div>
+    <div class="card table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Book Title</th>
+            <th>Author</th>
+            <th>Call Number</th>
+            <th>Due Date</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="shelfTableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 5. READER & NOTES PAGE -->
+  <section id="page-reader" class="page">
+    <div class="section-header">
+      <div>
+        <h2 id="readerBookTitle">Digital Reader & Margin Notes</h2>
+        <span id="readerBookAuthor" style="color:var(--text-muted); font-size:0.9rem;">Select any book to read excerpt and save notes</span>
+      </div>
+      <select id="readerBookSelect" onchange="switchReaderBook(this.value)"></select>
+    </div>
+
+    <div class="reader-layout">
+      <div class="card reader-paper" id="readerContent"></div>
+      <div class="card">
+        <h3 style="margin-bottom:0.75rem;">Study Notes</h3>
+        <textarea id="noteInput" rows="4" style="width:100%; margin-bottom:0.75rem;" placeholder="Write a reflection, citation, or summary..."></textarea>
+        <button class="btn btn-primary" style="width:100%; margin-bottom:1.25rem;" onclick="saveStudyNote()">Save Note</button>
+        <div id="notesList" style="display:flex; flex-direction:column; gap:0.75rem;"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. STAFF COUNTER PAGE -->
+  <section id="page-staff" class="page">
+    <div class="section-header">
+      <h2>Staff Circulation Counter</h2>
+      <span class="badge badge-amber">Librarian Desk Mode</span>
+    </div>
+
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:1.5rem;">
+      <div class="card">
+        <h3 style="margin-bottom:1rem;">Add New Volume to Catalog</h3>
+        <div style="display:flex; flex-direction:column; gap:0.75rem;">
+          <input type="text" class="input" id="newTitle" placeholder="Book Title">
+          <input type="text" class="input" id="newAuthor" placeholder="Author Name">
+          <select id="newCategory">
+            <option value="Computer Science">Computer Science</option>
+            <option value="Philosophy">Philosophy</option>
+            <option value="Literature">Literature</option>
+            <option value="Economics">Economics</option>
+            <option value="Psychology">Psychology</option>
+          </select>
+          <input type="text" class="input" id="newCallNo" placeholder="Shelf Call No (e.g., QA76.73)">
+          <input type="number" class="input" id="newCopies" value="3" min="1" placeholder="Number of Copies">
+          <button class="btn btn-accent" onclick="staffAddBook()">Add to Library</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-bottom:1rem;">Quick Return & Inventory</h3>
+        <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:1rem;">Manage active checkouts or restock returned physical copies.</p>
+        <div id="staffLoanList" style="display:flex; flex-direction:column; gap:0.65rem;"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- AUTH MODAL -->
+<div class="modal-backdrop" id="authModal">
+  <div class="modal">
+    <h3 style="margin-bottom:0.35rem;">Member Sign In</h3>
+    <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:1rem;">Sign in with your library credentials to sync loans and notes.</p>
+    <div style="display:flex; flex-direction:column; gap:0.75rem;">
+      <input type="email" class="input" id="authEmail" placeholder="Email (e.g., student@university.edu)">
+      <input type="password" class="input" id="authPassword" placeholder="Password (min 6 characters)">
+      <button class="btn btn-primary" onclick="handleEmailAuth('login')">Sign In</button>
+      <button class="btn btn-outline" onclick="handleEmailAuth('signup')">Create New Account</button>
+      <button class="btn btn-sm" style="color:var(--text-muted);" onclick="closeAuthModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- FIREBASE SDK & APP LOGIC -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  // =========================================================================
+  // 1. আপনার FIREBASE CONFIG এখানে বসান (Firebase Console > Project Settings)
+  // =========================================================================
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyCOoqXbDwD0KSpIARCNKgE3bloXllKbdvU",
+  authDomain: "mind-space-library-68a47.firebaseapp.com",
+  projectId: "mind-space-library-68a47",
+  storageBucket: "mind-space-library-68a47.firebasestorage.app",
+  messagingSenderId: "673944845485",
+  appId: "1:673944845485:web:9add6dcb29d5c28bf49a24",
+  measurementId: "G-0J8Q71WKJ8"
+};
+
+  let app, auth, db;
+  let firebaseReady = firebaseConfig.apiKey !== "YOUR_API_KEY";
+
+  if (firebaseReady) {
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+  }
+
+  // =========================================================================
+  // 2. INITIAL CATALOG DATA (ফায়ারস্টোর ফাঁকা থাকলে এই ডেটা দেখাবে)
+  // =========================================================================
+  const defaultBooks = [
+    {
+      id: "b1",
+      title: "Designing Data-Intensive Applications",
+      author: "Martin Kleppmann",
+      category: "Computer Science",
+      callNo: "QA76.9.D35 K54",
+      copies: 4,
+      color: "#1e3a5f",
+      summary: "The big ideas behind reliable, scalable, and maintainable systems. Essential reading for software engineers and distributed systems students.",
+      excerpt: "Chapter 1: Reliable, Scalable, and Maintainable Applications.\n\nMany applications today are data-intensive, as opposed to compute-intensive. Raw CPU power is rarely a limiting factor for these applications—bigger problems are usually the amount of data, the complexity of data, and the speed at which it is changing."
+    },
+    {
+      id: "b2",
+      title: "Thinking, Fast and Slow",
+      author: "Daniel Kahneman",
+      category: "Psychology",
+      callNo: "BF441 .K238",
+      copies: 2,
+      color: "#0f766e",
+      summary: "A groundbreaking tour of the mind explaining the two systems that drive the way we think—System 1 (fast, intuitive) and System 2 (slow, logical).",
+      excerpt: "Part I: Two Systems.\n\nSystem 1 operates automatically and quickly, with little or no effort and no sense of voluntary control. System 2 allocates attention to the effortful mental activities that demand it, including complex computations."
+    },
+    {
+      id: "b3",
+      title: "Meditations",
+      author: "Marcus Aurelius",
+      category: "Philosophy",
+      callNo: "B580 .A5",
+      copies: 5,
+      color: "#4338ca",
+      summary: "Personal writings of the Roman Emperor Marcus Aurelius recording his private notes to himself and ideas on Stoic philosophy.",
+      excerpt: "Book IV:\n\nMen seek retreats for themselves, houses in the country, seashores, and mountains; and thou too art wont to desire such things very much. Yet this is altogether a mark of the most common sort of men, for it is in thy power whenever thou shalt choose to retire into thyself."
+    },
+    {
+      id: "b4",
+      title: "The Wealth of Nations",
+      author: "Adam Smith",
+      category: "Economics",
+      callNo: "HB161 .S65",
+      copies: 3,
+      color: "#9a3412",
+      summary: "The foundational work in classical economics examining division of labor, productivity, and free markets.",
+      excerpt: "Book I, Chapter I: Of the Division of Labour.\n\nThe greatest improvement in the productive powers of labour, and the greater part of the skill, dexterity, and judgment with which it is any where directed, or applied, seem to have been the effects of the division of labour."
+    }
+  ];
+
+  // App State
+  let state = {
+    user: null,
+    books: [...defaultBooks],
+    loans: JSON.parse(localStorage.getItem("ms_loans") || "[]"),
+    notes: JSON.parse(localStorage.getItem("ms_notes") || "[]"),
+    seatsOpen: 42,
+    activeBookId: "b1"
+  };
+
+  // =========================================================================
+  // 3. NAVIGATION & UI HELPERS
+  // =========================================================================
+  window.navigate = function(pageId) {
+    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+    document.getElementById(`page-${pageId}`).classList.add("active");
+    document.querySelectorAll(".nav-btn").forEach(b => {
+      b.classList.toggle("active", b.dataset.page === pageId);
+    });
+    if (pageId === "catalog") renderCatalog();
+    if (pageId === "shelf") renderShelf();
+    if (pageId === "reader") renderReader();
+    if (pageId === "staff") renderStaff();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  window.showToast = function(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 3000);
+  };
+
+  function updateStats() {
+    const totalCopies = state.books.reduce((sum, b) => sum + Number(b.copies), 0);
+    document.getElementById("statAvailableBooks").textContent = (11926 + totalCopies).toLocaleString();
+    document.getElementById("statMyLoans").textContent = state.loans.length;
+    document.getElementById("statMyNotes").textContent = state.notes.length;
+  }
+
+  // =========================================================================
+  // 4. RENDER FUNCTIONS (HOME, CATALOG, DETAIL, SHELF, READER, STAFF)
+  // =========================================================================
+  function createBookCard(book) {
+    const available = book.copies > 0;
+    return `
+      <div class="card book-card">
+        <div>
+          <div class="book-cover" style="background:${book.color || '#1e3a5f'}">
+            <span style="font-size:0.75rem; opacity:0.8; font-family:Inter,sans-serif;">${book.category}</span>
+            <div>${book.title}</div>
+          </div>
+          <div class="book-title">${book.title}</div>
+          <div class="book-author">${book.author}</div>
+          <span class="badge ${available ? 'badge-green' : 'badge-amber'}">
+            ${available ? `${book.copies} copies available` : 'Checked out'}
+          </span>
+        </div>
+        <div class="book-meta">
+          <button class="btn btn-outline btn-sm" onclick="openBookDetail('${book.id}')">Details</button>
+          <button class="btn btn-primary btn-sm" ${!available ? 'disabled style="opacity:0.5"' : ''} onclick="borrowBook('${book.id}')">Borrow</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderHome() {
+    document.getElementById("homeFeaturedGrid").innerHTML = state.books.slice(0, 4).map(createBookCard).join("");
+    updateStats();
+  }
+
+  window.renderCatalog = function() {
+    const q = document.getElementById("catalogSearch").value.toLowerCase();
+    const cat = document.getElementById("catalogCategory").value;
+    const avail = document.getElementById("catalogAvailability").value;
+
+    const filtered = state.books.filter(b => {
+      const matchText = b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q);
+      const matchCat = cat === "All" || b.category === cat;
+      const matchAvail = avail === "All" || b.copies > 0;
+      return matchText && matchCat && matchAvail;
+    });
+
+    document.getElementById("catalogCount").textContent = `Showing ${filtered.length} volume(s)`;
+    document.getElementById("catalogGrid").innerHTML = filtered.length
+      ? filtered.map(createBookCard).join("")
+      : `<p style="color:var(--text-muted);">No matching books found.</p>`;
+  };
+
+  window.searchFromHero = function() {
+    const val = document.getElementById("heroSearchInput").value;
+    document.getElementById("catalogSearch").value = val;
+    navigate("catalog");
+  };
+
+  window.openBookDetail = function(bookId) {
+    const book = state.books.find(b => b.id === bookId);
+    if (!book) return;
+    state.activeBookId = bookId;
+
+    document.getElementById("bookDetailContainer").innerHTML = `
+      <div class="detail-layout card">
+        <div class="detail-cover" style="background:${book.color || '#1e3a5f'}">
+          <span style="font-size:0.85rem; font-family:Inter,sans-serif; opacity:0.85;">${book.category}</span>
+          <div>${book.title}</div>
+        </div>
+        <div>
+          <span class="badge ${book.copies > 0 ? 'badge-green' : 'badge-amber'}">${book.copies} Copies on Shelf</span>
+          <h1 style="font-family:'Lora',serif; margin:0.65rem 0 0.25rem;">${book.title}</h1>
+          <p style="color:var(--text-muted); margin-bottom:1.25rem;">by <strong>${book.author}</strong> • Call No: <code>${book.callNo}</code></p>
+          <p style="margin-bottom:1.5rem; line-height:1.7;">${book.summary}</p>
+          <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="borrowBook('${book.id}')">Borrow Physical Copy</button>
+            <button class="btn btn-accent" onclick="openInReader('${book.id}')">Read Digital Excerpt & Take Notes</button>
+          </div>
+        </div>
+      </div>
+    `;
+    navigate("detail");
+  };
+
+  // =========================================================================
+  // 5. BORROW, RETURN, SEAT & NOTES ACTIONS (SYNCED WITH FIRESTORE + LOCAL)
+  // =========================================================================
+  window.borrowBook = async function(bookId) {
+    const book = state.books.find(b => b.id === bookId);
+    if (!book || book.copies <= 0) return showToast("No copies available right now.");
+    if (state.loans.some(l => l.bookId === bookId)) return showToast("You already borrowed this title.");
+    if (state.loans.length >= 5) return showToast("Maximum 5 active loans reached.");
+
+    book.copies -= 1;
+    const due = new Date(Date.now() + 14 * 86400000).toLocaleDateString();
+    const loan = { id: "ln_" + Date.now(), bookId: book.id, title: book.title, author: book.author, callNo: book.callNo, dueDate: due };
+    state.loans.push(loan);
+    localStorage.setItem("ms_loans", JSON.stringify(state.loans));
+
+    if (firebaseReady && state.user) {
+      try {
+        await addDoc(collection(db, "loans"), { ...loan, uid: state.user.uid });
+      } catch (e) { console.warn("Firestore sync skipped:", e.message); }
+    }
+
+    renderHome();
+    renderCatalog();
+    showToast(`Borrowed "${book.title}". Due ${due}.`);
+  };
+
+  window.returnBook = function(loanId) {
+    const idx = state.loans.findIndex(l => l.id === loanId);
+    if (idx === -1) return;
+    const [loan] = state.loans.splice(idx, 1);
+    const book = state.books.find(b => b.id === loan.bookId);
+    if (book) book.copies += 1;
+
+    localStorage.setItem("ms_loans", JSON.stringify(state.loans));
+    renderShelf();
+    renderStaff();
+    renderHome();
+    showToast(`Returned "${loan.title}".`);
+  };
+
+  window.reserveSeat = function() {
+    if (state.seatsOpen <= 0) return showToast("All study desks are currently occupied.");
+    state.seatsOpen -= 1;
+    document.getElementById("seatCounter").textContent = `${state.seatsOpen} / 60 Seats Open`;
+    showToast("Reading Desk #14 reserved for 2 hours.");
+  };
+
+  function renderShelf() {
+    const tbody = document.getElementById("shelfTableBody");
+    if (!state.loans.length) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">Your shelf is empty. Borrow a book from the catalog!</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = state.loans.map(l => `
+      <tr>
+        <td><strong>${l.title}</strong></td>
+        <td>${l.author}</td>
+        <td><code>${l.callNo}</code></td>
+        <td>${l.dueDate}</td>
+        <td><span class="badge badge-green">Active</span></td>
+        <td style="display:flex; gap:0.4rem;">
+          <button class="btn btn-outline btn-sm" onclick="openInReader('${l.bookId}')">Read</button>
+          <button class="btn btn-primary btn-sm" onclick="returnBook('${l.id}')">Return</button>
+        </td>
+      </tr>
+    `).join("");
+  }
+
+  window.openInReader = function(bookId) {
+    state.activeBookId = bookId;
+    navigate("reader");
+  };
+
+  window.switchReaderBook = function(bookId) {
+    state.activeBookId = bookId;
+    renderReader();
+  };
+
+  function renderReader() {
+    const select = document.getElementById("readerBookSelect");
+    select.innerHTML = state.books.map(b => `<option value="${b.id}" ${b.id === state.activeBookId ? 'selected' : ''}>${b.title}</option>`).join("");
+
+    const book = state.books.find(b => b.id === state.activeBookId) || state.books[0];
+    document.getElementById("readerBookTitle").textContent = book.title;
+    document.getElementById("readerBookAuthor").textContent = `by ${book.author} • ${book.category}`;
+    document.getElementById("readerContent").innerHTML = book.excerpt.split("\n\n").map(p => `<p style="margin-bottom:1.1rem;">${p}</p>`).join("");
+
+    const bookNotes = state.notes.filter(n => n.bookId === book.id);
+    document.getElementById("notesList").innerHTML = bookNotes.length
+      ? bookNotes.map(n => `
+          <div style="background:var(--surface-alt); padding:0.75rem; border-radius:8px; font-size:0.88rem;">
+            <p style="margin-bottom:0.35rem;">${n.text}</p>
+            <span style="font-size:0.75rem; color:var(--text-muted);">${n.date}</span>
+          </div>
+        `).join("")
+      : `<p style="font-size:0.85rem; color:var(--text-muted);">No margin notes for this book yet.</p>`;
+  }
+
+  window.saveStudyNote = async function() {
+    const input = document.getElementById("noteInput");
+    const text = input.value.trim();
+    if (!text) return;
+
+    const note = { id: "nt_" + Date.now(), bookId: state.activeBookId, text, date: new Date().toLocaleString() };
+    state.notes.unshift(note);
+    localStorage.setItem("ms_notes", JSON.stringify(state.notes));
+    input.value = "";
+
+    if (firebaseReady && state.user) {
+      try {
+        await addDoc(collection(db, "notes"), { ...note, uid: state.user.uid });
+      } catch (e) { console.warn("Note sync skipped:", e.message); }
+    }
+
+    renderReader();
+    updateStats();
+    showToast("Study note saved!");
+  };
+
+  // =========================================================================
+  // 6. STAFF COUNTER
+  // =========================================================================
+  window.staffAddBook = async function() {
+    const title = document.getElementById("newTitle").value.trim();
+    const author = document.getElementById("newAuthor").value.trim();
+    const category = document.getElementById("newCategory").value;
+    const callNo = document.getElementById("newCallNo").value.trim() || "GEN-101";
+    const copies = parseInt(document.getElementById("newCopies").value) || 1;
+
+    if (!title || !author) return showToast("Please enter both title and author.");
+
+    const newBook = {
+      id: "b_" + Date.now(),
+      title, author, category, callNo, copies,
+      color: "#1e3a5f",
+      summary: `Cataloged in ${category} section. Available for student and faculty borrowing.`,
+      excerpt: `Preview excerpt for "${title}" by ${author}.\n\nFull physical volume available at shelf ${callNo}.`
+    };
+
+    state.books.unshift(newBook);
+
+    if (firebaseReady) {
+      try { await addDoc(collection(db, "books"), newBook); } catch (e) {}
+    }
+
+    document.getElementById("newTitle").value = "";
+    document.getElementById("newAuthor").value = "";
+    document.getElementById("newCallNo").value = "";
+    renderHome();
+    showToast(`Added "${title}" to catalog.`);
+  };
+
+  function renderStaff() {
+    const list = document.getElementById("staffLoanList");
+    if (!state.loans.length) {
+      list.innerHTML = `<p style="font-size:0.88rem; color:var(--text-muted);">No active checkouts to process.</p>`;
+      return;
+    }
+    list.innerHTML = state.loans.map(l => `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:0.65rem; background:var(--surface-alt); border-radius:8px;">
+        <div>
+          <div style="font-weight:600; font-size:0.9rem;">${l.title}</div>
+          <div style="font-size:0.78rem; color:var(--text-muted);">Due: ${l.dueDate}</div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="returnBook('${l.id}')">Check In</button>
+      </div>
+    `).join("");
+  }
+
+  // =========================================================================
+  // 7. FIREBASE AUTHENTICATION
+  // =========================================================================
+  window.openAuthModal = function() {
+    if (state.user) {
+      if (firebaseReady) signOut(auth);
+      state.user = null;
+      updateUserUI();
+      showToast("Signed out.");
+      return;
+    }
+    document.getElementById("authModal").classList.add("open");
+  };
+
+  window.closeAuthModal = function() {
+    document.getElementById("authModal").classList.remove("open");
+  };
+
+  window.handleEmailAuth = async function(mode) {
+    const email = document.getElementById("authEmail").value.trim();
+    const pass = document.getElementById("authPassword").value;
+    if (!email || pass.length < 6) return showToast("Enter valid email and 6+ char password.");
+
+    if (!firebaseReady) {
+      // Demo fallback if Firebase config is not pasted yet
+      state.user = { email, uid: "demo-user" };
+      updateUserUI();
+      closeAuthModal();
+      return showToast(`Signed in as ${email} (Local Mode)`);
+    }
+
+    try {
+      if (mode === "signup") {
+        await createUserWithEmailAndPassword(auth, email, pass);
+        showToast("Account created & signed in!");
+      } else {
+        await signInWithEmailAndPassword(auth, email, pass);
+        showToast("Signed in successfully!");
+      }
+      closeAuthModal();
+    } catch (err) {
+      showToast(err.message);
+    }
+  };
+
+  function updateUserUI() {
+    const nameEl = document.getElementById("userNameDisplay");
+    const avatarEl = document.getElementById("userAvatar");
+    const btnEl = document.getElementById("authActionBtn");
+
+    if (state.user) {
+      const shortName = state.user.email.split("@")[0];
+      nameEl.textContent = shortName;
+      avatarEl.textContent = shortName.slice(0, 2).toUpperCase();
+      btnEl.textContent = "Sign Out";
+    } else {
+      nameEl.textContent = "Guest";
+      avatarEl.textContent = "GU";
+      btnEl.textContent = "Sign In";
+    }
+  }
+
+  if (firebaseReady) {
+    onAuthStateChanged(auth, (user) => {
+      state.user = user;
+      updateUserUI();
+    });
+  }
+
+  // Initialize App
+  renderHome();
+</script>
+</body>
+</html>

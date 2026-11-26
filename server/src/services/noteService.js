@@ -58,7 +58,7 @@ async function updateNote(userId, noteId, { title, content }) {
   try {
     await client.query('BEGIN');
 
-    // Ownership check strictly enforced via WHERE user_id = $4 (Challenge A03)
+   
     const res = await client.query(
       `UPDATE private_notes
        SET title = $1, content = $2, updated_at = NOW()
