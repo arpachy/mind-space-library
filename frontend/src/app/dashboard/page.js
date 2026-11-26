@@ -26,6 +26,15 @@ import {
   Bell,
   ChevronDown,
   Zap,
+  ShoppingBag,
+  Plus,
+  Minus,
+  Trash2,
+  Tag,
+  Receipt,
+  Phone,
+  Hash,
+  Building2,
 } from "lucide-react";
 
 const CAP = 30;
@@ -160,7 +169,7 @@ export default function DashboardPage() {
   const [categories, setCategories] = useState([]);
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("All");
-  const [navTab, setNavTab] = useState("all"); // "all" | "digital" | "saved"
+  const [navTab, setNavTab] = useState("all"); // "all" | "digital" | "saved" | "orders"
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
   const [toast, setToast] = useState(null);
@@ -169,6 +178,16 @@ export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+
+  // University Store Cart & FCFS Checkout State
+  const [cart, setCart] = useState([]); // [{ bookId, title, author, priceBdt, maxCopies, quantity }]
+  const [cartOpen, setCartOpen] = useState(false);
+  const [studentId, setStudentId] = useState("");
+  const [department, setDepartment] = useState("");
+  const [phone, setPhone] = useState("");
+  const [pickupNote, setPickupNote] = useState("");
+  const [placingOrder, setPlacingOrder] = useState(false);
+  const [orders, setOrders] = useState([]);
 
   useEffect(() => {
     const syncLayout = () => {
@@ -216,15 +235,26 @@ export default function DashboardPage() {
     }
   }, [q, cat]);
 
+  const loadOrders = useCallback(async () => {
+    try {
+      const r = await fetch("/api/orders");
+      if (r.ok) {
+        const d = await r.json();
+        setOrders(d.orders || []);
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
     if (!user) return;
     const t = setTimeout(load, 250);
     const i = setInterval(load, 15000);
+    loadOrders();
     return () => {
       clearTimeout(t);
       clearInterval(i);
     };
-  }, [user, load]);
+  }, [user, load, loadOrders]);
 
   const readDigital = async (book) => {
     setBusy(book.id);
@@ -247,6 +277,95 @@ export default function DashboardPage() {
     );
   };
 
+  // Cart & Bulk Discount Helpers (2-4 books = 15%, 5+ books = 25%)
+  const addToCart = (book) => {
+    if (Number(book.physicalCopies) <= 0) {
+      say("error", `"${book.title}" is currently sold out.`);
+      return;
+    }
+    setCart((prev) => {
+      const existing = prev.find((item) => item.bookId === book.id);
+      if (existing) {
+        if (existing.quantity >= Number(book.physicalCopies)) {
+          say("error", `Only ${book.physicalCopies} print copies available for "${book.title}".`);
+          return prev;
+        }
+        return prev.map((item) =>
+          item.bookId === book.id ? { ...item, quantity: item.quantity + 1 } : item
+        );
+      }
+      return [
+        ...prev,
+        {
+          bookId: book.id,
+          title: book.title,
+          author: book.author,
+          priceBdt: Number(book.priceBdt),
+          maxCopies: Number(book.physicalCopies),
+          quantity: 1,
+        },
+      ];
+    });
+    setCartOpen(true);
+  };
+
+  const updateCartQty = (bookId, delta) => {
+    setCart((prev) =>
+      prev
+        .map((item) => {
+          if (item.bookId !== bookId) return item;
+          const nextQty = item.quantity + delta;
+          if (nextQty <= 0) return null;
+          if (nextQty > item.maxCopies) {
+            say("error", `Maximum ${item.maxCopies} print copies in stock.`);
+            return item;
+          }
+          return { ...item, quantity: nextQty };
+        })
+        .filter(Boolean)
+    );
+  };
+
+  const totalCartBooks = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const cartSubtotal = cart.reduce((sum, item) => sum + item.priceBdt * item.quantity, 0);
+  const discountPercent = totalCartBooks >= 5 ? 25 : totalCartBooks >= 2 ? 15 : 0;
+  const discountAmount = (cartSubtotal * discountPercent) / 100;
+  const cartFinalTotal = cartSubtotal - discountAmount;
+
+  const submitOrder = async (e) => {
+    e.preventDefault();
+    if (cart.length === 0) return;
+    setPlacingOrder(true);
+    try {
+      const r = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId,
+          department,
+          phone,
+          pickupNote,
+          items: cart.map((i) => ({ bookId: i.bookId, quantity: i.quantity })),
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Order failed");
+
+      say("success", d.message);
+      setCart([]);
+      setPickupNote("");
+      setCartOpen(false);
+      setNavTab("orders");
+      load();
+      loadOrders();
+    } catch (err) {
+      say("error", err.message);
+      load();
+    } finally {
+      setPlacingOrder(false);
+    }
+  };
+
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     localStorage.removeItem("mindspace_user");
@@ -267,7 +386,7 @@ export default function DashboardPage() {
 
   return (
     <div className="relative min-h-screen text-zinc-900 p-0 lg:p-6 overflow-x-hidden">
-      {/* Crisp Library Background Image + Subtle Lavender Tint (Reduced Blur) */}
+      {/* Crisp Library Background Image + Subtle Lavender Tint */}
       <div
         className="fixed inset-0 -z-20 bg-cover bg-center bg-no-repeat"
         style={{
@@ -296,7 +415,7 @@ export default function DashboardPage() {
                       Mind Space
                     </span>
                     <span className="text-[11px] text-indigo-200/70 font-medium mt-1 block">
-                      Digital Library
+                      Library & Store
                     </span>
                   </div>
                 </div>
@@ -375,18 +494,41 @@ export default function DashboardPage() {
                     </span>
                   )}
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNavTab("orders");
+                    setSidebarOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    navTab === "orders"
+                      ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/25"
+                      : "text-indigo-100/75 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <span className="flex items-center gap-3">
+                    <Receipt className="w-4 h-4" /> My Print Orders
+                  </span>
+                  {orders.length > 0 && (
+                    <span className="text-[11px] bg-emerald-500/30 text-emerald-200 px-2 py-0.5 rounded-full">
+                      {orders.length}
+                    </span>
+                  )}
+                </button>
               </nav>
 
               {categories.length > 0 && (
-                <div className="mt-7">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-300/50 px-3 mb-2.5">
+                <div className="mt-6">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-300/50 px-3 mb-2">
                     Departments
                   </p>
-                  <div className="space-y-1 max-h-44 overflow-y-auto pr-1">
+                  <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
                     <button
                       type="button"
                       onClick={() => {
                         setCat("All");
+                        setNavTab("all");
                         setSidebarOpen(false);
                       }}
                       className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-medium transition ${
@@ -403,6 +545,7 @@ export default function DashboardPage() {
                         type="button"
                         onClick={() => {
                           setCat(c);
+                          setNavTab("all");
                           setSidebarOpen(false);
                         }}
                         className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-medium truncate transition ${
@@ -420,17 +563,14 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-3 pt-4">
-              <div className="rounded-2xl bg-gradient-to-br from-violet-400/25 via-purple-400/20 to-indigo-400/25 border border-white/15 p-4 text-center backdrop-blur-sm">
-                <div className="w-9 h-9 rounded-xl bg-white/15 mx-auto mb-2.5 flex items-center justify-center text-amber-300">
-                  <GraduationCap className="w-5 h-5" />
+              <div className="rounded-2xl bg-gradient-to-br from-amber-400/20 via-orange-400/15 to-indigo-400/20 border border-white/15 p-3.5 text-center backdrop-blur-sm">
+                <div className="w-8 h-8 rounded-xl bg-white/15 mx-auto mb-2 flex items-center justify-center text-amber-300">
+                  <Tag className="w-4 h-4" />
                 </div>
-                <p className="text-xs font-bold text-white">
-                  {isFaculty ? "Faculty Priority Active" : "4-Day Digital Pass"}
-                </p>
-                <p className="text-[11px] text-indigo-200/80 mt-1 leading-relaxed">
-                  {isFaculty
-                    ? "Bypass 30-seat cap anytime for research & teaching."
-                    : "Up to 30 concurrent readers per digital edition."}
+                <p className="text-xs font-bold text-white">University Bulk Offer</p>
+                <p className="text-[11px] text-indigo-200/85 mt-1 leading-relaxed">
+                  Buy <strong>2+ books</strong> for <strong>15% OFF</strong> •{" "}
+                  <strong>5+ books</strong> for <strong>25% OFF</strong> (FCFS)
                 </p>
               </div>
 
@@ -442,6 +582,240 @@ export default function DashboardPage() {
                 Sign Out
               </button>
             </div>
+          </aside>
+        </div>
+      )}
+
+      {/* RIGHT SLIDE-OVER: UNIVERSITY FCFS BOOK STORE BAG & PRE-BOOK FORM */}
+      {cartOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div
+            className="fixed inset-0 bg-[#140e24]/50 backdrop-blur-xs"
+            onClick={() => setCartOpen(false)}
+          />
+          <aside className="relative w-full max-w-md h-full bg-white shadow-2xl z-10 flex flex-col justify-between overflow-hidden">
+            {/* Drawer Header */}
+            <div className="bg-gradient-to-r from-[#1f1635] to-[#2e204f] text-white px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-400/20 text-amber-300 flex items-center justify-center">
+                  <ShoppingBag className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-sm sm:text-base leading-tight">
+                    University Book Order Bag
+                  </h2>
+                  <p className="text-[11px] text-indigo-200/80">
+                    First-Come, First-Served (FCFS) Stock Lock
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCartOpen(false)}
+                className="p-2 rounded-xl text-indigo-200 hover:bg-white/10 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Bulk Discount Progress Banner */}
+            <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-indigo-50 border-b border-amber-200/70 px-5 py-3">
+              <div className="flex items-center justify-between text-xs font-bold text-[#1f1635] mb-1.5">
+                <span className="flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-orange-600" />
+                  {discountPercent === 25
+                    ? "Max 25% Bulk Discount Unlocked!"
+                    : discountPercent === 15
+                    ? "15% Discount Active! Add " + (5 - totalCartBooks) + " more for 25% OFF"
+                    : totalCartBooks === 1
+                    ? "Add 1 more book for 15% OFF!"
+                    : "Buy 2 books (15% OFF) • Buy 5 books (25% OFF)"}
+                </span>
+                {discountPercent > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px]">
+                    -{discountPercent}%
+                  </span>
+                )}
+              </div>
+              <div className="w-full h-1.5 bg-white rounded-full overflow-hidden border border-amber-200/60">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-500 to-emerald-500 transition-all duration-300"
+                  style={{ width: `${Math.min(100, (totalCartBooks / 5) * 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Scrollable Cart Items + University Student Form */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
+              {cart.length === 0 ? (
+                <div className="text-center py-12 px-4 rounded-2xl bg-slate-50 border border-dashed border-slate-200">
+                  <ShoppingBag className="w-10 h-10 text-slate-300 mx-auto mb-2.5" />
+                  <p className="text-sm font-bold text-slate-700">Your order bag is empty</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Click <strong>"Buy Print"</strong> on any book card to reserve physical copies.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Selected Books List */}
+                  <div className="space-y-2.5">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      Selected Copies ({totalCartBooks})
+                    </p>
+                    {cart.map((item) => (
+                      <div
+                        key={item.bookId}
+                        className="p-3 rounded-2xl bg-[#f8f7ff] border border-indigo-100 flex items-center justify-between gap-3"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-zinc-900 truncate">{item.title}</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            {item.priceBdt} BDT × {item.quantity} •{" "}
+                            <span className="text-emerald-700 font-semibold">
+                              {item.maxCopies} left
+                            </span>
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => updateCartQty(item.bookId, -1)}
+                            className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-100"
+                          >
+                            {item.quantity === 1 ? (
+                              <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                            ) : (
+                              <Minus className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                          <span className="w-6 text-center text-xs font-bold">{item.quantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => updateCartQty(item.bookId, 1)}
+                            className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-100"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* University Student Pre-Booking Form */}
+                  <form id="fcfs-order-form" onSubmit={submitOrder} className="space-y-3 pt-2 border-t border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-[#1f1635]">
+                        University Pre-Booking Details
+                      </p>
+                      <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                        FCFS Queue
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                        Student / Faculty ID *
+                      </label>
+                      <div className="relative">
+                        <Hash className="w-3.5 h-3.5 text-indigo-400 absolute left-3 top-3" />
+                        <input
+                          type="text"
+                          required
+                          value={studentId}
+                          onChange={(e) => setStudentId(e.target.value)}
+                          placeholder="e.g. C211045"
+                          className="w-full pl-9 pr-3 py-2 bg-[#f7f6ff] border border-indigo-100 rounded-xl text-xs focus:bg-white focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                          Department *
+                        </label>
+                        <div className="relative">
+                          <Building2 className="w-3.5 h-3.5 text-indigo-400 absolute left-3 top-3" />
+                          <input
+                            type="text"
+                            required
+                            value={department}
+                            onChange={(e) => setDepartment(e.target.value)}
+                            placeholder="e.g. CSE / BBA"
+                            className="w-full pl-9 pr-3 py-2 bg-[#f7f6ff] border border-indigo-100 rounded-xl text-xs focus:bg-white focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                          Phone Number *
+                        </label>
+                        <div className="relative">
+                          <Phone className="w-3.5 h-3.5 text-indigo-400 absolute left-3 top-3" />
+                          <input
+                            type="tel"
+                            required
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            placeholder="01XXXXXXXXX"
+                            className="w-full pl-9 pr-3 py-2 bg-[#f7f6ff] border border-indigo-100 rounded-xl text-xs focus:bg-white focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                        Pickup Time / Note (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={pickupNote}
+                        onChange={(e) => setPickupNote(e.target.value)}
+                        placeholder="e.g. Tomorrow 11:00 AM at Central Library Desk"
+                        className="w-full px-3 py-2 bg-[#f7f6ff] border border-indigo-100 rounded-xl text-xs focus:bg-white focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </form>
+                </>
+              )}
+            </div>
+
+            {/* Sticky Price Breakdown & Confirm CTA */}
+            {cart.length > 0 && (
+              <div className="border-t border-slate-200 bg-slate-50/90 p-5 space-y-3">
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between text-slate-500">
+                    <span>Subtotal ({totalCartBooks} books)</span>
+                    <span className="font-semibold text-zinc-800">
+                      {cartSubtotal.toFixed(2)} BDT
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-emerald-700 font-semibold">
+                    <span>Bulk Discount ({discountPercent}%)</span>
+                    <span>-{discountAmount.toFixed(2)} BDT</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-extrabold text-[#1f1635] pt-1.5 border-t border-slate-200">
+                    <span>Payable at Library Desk</span>
+                    <span>{cartFinalTotal.toFixed(2)} BDT</span>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  form="fcfs-order-form"
+                  disabled={placingOrder}
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#1f1635] via-indigo-700 to-purple-700 hover:opacity-95 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-950/20 transition disabled:opacity-60"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                  <span>
+                    {placingOrder ? "Locking Stock (FCFS)..." : "Confirm Purchase (FCFS)"}
+                  </span>
+                </button>
+              </div>
+            )}
           </aside>
         </div>
       )}
@@ -471,7 +845,7 @@ export default function DashboardPage() {
                   Mind Space Library
                 </h1>
                 <p className="text-[11px] text-slate-500 hidden xl:block">
-                  Digital & Physical Resource Portal
+                  Digital Reader & University Book Store
                 </p>
               </div>
             </div>
@@ -485,7 +859,7 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => setNavTab("all")}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
                 navTab === "all"
                   ? "bg-white text-[#1f1635] shadow-xs"
                   : "text-slate-600 hover:text-[#1f1635]"
@@ -493,31 +867,25 @@ export default function DashboardPage() {
             >
               <Compass className="w-3.5 h-3.5 text-indigo-600" />
               All Books
-              <span className="text-[10px] font-bold bg-indigo-100/80 text-indigo-800 px-1.5 py-0.2 rounded-full">
-                {books.length}
-              </span>
             </button>
 
             <button
               type="button"
               onClick={() => setNavTab("digital")}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
                 navTab === "digital"
                   ? "bg-white text-[#1f1635] shadow-xs"
                   : "text-slate-600 hover:text-[#1f1635]"
               }`}
             >
               <FileText className="w-3.5 h-3.5 text-purple-600" />
-              PDF Editions
-              <span className="text-[10px] font-bold bg-purple-100/80 text-purple-800 px-1.5 py-0.2 rounded-full">
-                {digitalCount}
-              </span>
+              PDFs
             </button>
 
             <button
               type="button"
               onClick={() => setNavTab("saved")}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
                 navTab === "saved"
                   ? "bg-white text-[#1f1635] shadow-xs"
                   : "text-slate-600 hover:text-[#1f1635]"
@@ -525,27 +893,46 @@ export default function DashboardPage() {
             >
               <Bookmark className="w-3.5 h-3.5 text-amber-600" />
               Saved
-              {savedIds.length > 0 && (
-                <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded-full">
-                  {savedIds.length}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setNavTab("orders")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                navTab === "orders"
+                  ? "bg-white text-[#1f1635] shadow-xs"
+                  : "text-slate-600 hover:text-[#1f1635]"
+              }`}
+            >
+              <Receipt className="w-3.5 h-3.5 text-emerald-600" />
+              My Orders
+              {orders.length > 0 && (
+                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full">
+                  {orders.length}
                 </span>
               )}
             </button>
           </nav>
 
-          {/* Right: Quick Search Pill + Live Bell Popover + Interactive User Menu */}
+          {/* Right: Order Bag Trigger + Bell + Profile */}
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            {/* Live Order Bag Button */}
             <button
               type="button"
-              onClick={() => searchInputRef.current?.focus()}
-              title="Focus search (Ctrl + K)"
-              className="hidden lg:inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100/80 hover:bg-indigo-50 text-slate-500 hover:text-indigo-700 border border-slate-200/70 text-xs font-medium transition"
+              onClick={() => setCartOpen(true)}
+              className="relative inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold shadow-sm shadow-orange-500/25 transition active:scale-95"
+              title="Open University Book Order Bag"
             >
-              <Search className="w-3.5 h-3.5" />
-              <span>Search</span>
-              <kbd className="text-[10px] font-bold bg-white px-1.5 py-0.5 rounded border border-slate-200 text-slate-400">
-                Ctrl K
-              </kbd>
+              <ShoppingBag className="w-4 h-4" />
+              <span className="hidden sm:inline">Order Bag</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-black/25 text-[10px] font-extrabold">
+                {totalCartBooks}
+              </span>
+              {discountPercent > 0 && (
+                <span className="hidden xl:inline px-1.5 py-0.2 rounded-full bg-white text-orange-700 text-[10px] font-extrabold">
+                  -{discountPercent}%
+                </span>
+              )}
             </button>
 
             {/* Interactive Notification Bell Dropdown */}
@@ -566,33 +953,30 @@ export default function DashboardPage() {
               {notifOpen && (
                 <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl border border-indigo-100 shadow-xl shadow-indigo-950/15 p-3.5 z-40">
                   <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
-                    <span className="text-xs font-bold text-[#1f1635]">System Status</span>
+                    <span className="text-xs font-bold text-[#1f1635]">Offers & Live Status</span>
                     <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">
-                      Live
+                      Active
                     </span>
                   </div>
                   <div className="space-y-2.5 text-xs">
+                    <div className="flex items-start gap-2.5 p-2 rounded-xl bg-amber-50/70">
+                      <Tag className="w-4 h-4 text-orange-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-semibold text-zinc-900">Bulk Purchase Discounts</p>
+                        <p className="text-[11px] text-slate-600">
+                          Buy 2 books = <strong>15% OFF</strong> • Buy 5 books ={" "}
+                          <strong>25% OFF</strong>
+                        </p>
+                      </div>
+                    </div>
                     <div className="flex items-start gap-2.5 p-2 rounded-xl bg-indigo-50/60">
                       <Zap className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
                       <div>
                         <p className="font-semibold text-zinc-900">
-                          {digitalCount} Digital PDFs Online
+                          First-Come, First-Served Store
                         </p>
                         <p className="text-[11px] text-slate-500">
-                          Instant 4-day seat allocation active.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2.5 p-2 rounded-xl bg-amber-50/60">
-                      <Users className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-semibold text-zinc-900">
-                          {isFaculty ? "Faculty Override Ready" : "30-Reader Fair Queue"}
-                        </p>
-                        <p className="text-[11px] text-slate-500">
-                          {isFaculty
-                            ? "Unlimited priority access enabled."
-                            : "Live reader counts sync every 15s."}
+                          Print copies lock instantaneously upon order submission.
                         </p>
                       </div>
                     </div>
@@ -636,9 +1020,20 @@ export default function DashboardPage() {
                   <div className="px-3 py-2 border-b border-slate-100 mb-1">
                     <p className="text-xs font-bold text-zinc-900">{user.name}</p>
                     <p className="text-[11px] text-slate-500 capitalize">
-                      {user.role} Account • {savedIds.length} Saved
+                      {user.role} • {orders.length} Print Orders
                     </p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNavTab("orders");
+                      setProfileOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition"
+                  >
+                    <Receipt className="w-3.5 h-3.5" />
+                    My Print Orders ({orders.length})
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -690,298 +1085,391 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Top Stat Summary Row */}
-          <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
-            <div className="bg-white/95 rounded-2xl border border-indigo-100/80 p-3.5 sm:p-4 shadow-2xs flex items-center justify-between">
+          {/* Top Stat & Bulk Discount Banner Row */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
+            <div className="bg-white/95 rounded-2xl border border-indigo-100/80 p-4 shadow-2xs flex items-center justify-between">
               <div>
-                <p className="text-lg sm:text-2xl font-extrabold text-[#1f1635] leading-none">
-                  {books.length}
+                <p className="text-xl sm:text-2xl font-extrabold text-[#1f1635] leading-none">
+                  {books.length} <span className="text-xs font-semibold text-slate-500">Titles</span>
                 </p>
-                <p className="text-[11px] sm:text-xs font-medium text-slate-500 mt-1">
-                  Catalog Books
+                <p className="text-xs font-medium text-slate-500 mt-1">
+                  {digitalCount} Digital PDFs • {CAP}-Seat Cap
                 </p>
               </div>
-              <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
                 <Library className="w-5 h-5" />
               </div>
             </div>
 
-            <div className="bg-white/95 rounded-2xl border border-indigo-100/80 p-3.5 sm:p-4 shadow-2xs flex items-center justify-between">
+            <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white rounded-2xl p-4 shadow-sm flex items-center justify-between">
               <div>
-                <p className="text-lg sm:text-2xl font-extrabold text-indigo-700 leading-none">
-                  {digitalCount}
-                </p>
-                <p className="text-[11px] sm:text-xs font-medium text-slate-500 mt-1">
-                  Digital PDFs
+                <span className="text-[10px] font-extrabold uppercase tracking-wider bg-black/20 px-2 py-0.5 rounded-full">
+                  University Bulk Deal
+                </span>
+                <p className="text-sm sm:text-base font-extrabold mt-1 leading-tight">
+                  2 Books: 15% OFF • 5 Books: 25% OFF
                 </p>
               </div>
-              <div className="hidden sm:flex w-10 h-10 rounded-xl bg-purple-50 text-purple-600 items-center justify-center">
-                <FileText className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-xl bg-white/20 text-white flex items-center justify-center shrink-0">
+                <Tag className="w-5 h-5" />
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-[#23183d] to-[#342359] text-white rounded-2xl p-3.5 sm:p-4 shadow-sm flex items-center justify-between">
+            <div className="bg-gradient-to-br from-[#23183d] to-[#342359] text-white rounded-2xl p-4 shadow-sm flex items-center justify-between">
               <div>
-                <p className="text-lg sm:text-2xl font-extrabold leading-none">
-                  {CAP} <span className="text-xs font-semibold text-indigo-200">Seats</span>
+                <p className="text-sm sm:text-base font-extrabold leading-tight">
+                  First-Come, First-Served
                 </p>
-                <p className="text-[11px] sm:text-xs font-medium text-indigo-200/80 mt-1">
-                  4-Day Access Cap
+                <p className="text-[11px] text-indigo-200/80 mt-1">
+                  Limited print copies • Pre-book with Student ID
                 </p>
               </div>
-              <div className="hidden sm:flex w-10 h-10 rounded-xl bg-white/10 text-amber-300 items-center justify-center">
-                <Users className="w-5 h-5" />
-              </div>
-            </div>
-          </div>
-
-          {/* Search & Category Filter Bar */}
-          <div className="bg-white/95 p-3 rounded-2xl border border-indigo-100/90 shadow-2xs mb-5 flex flex-col md:flex-row gap-3 items-center justify-between">
-            <div className="relative w-full md:flex-1">
-              <Search className="w-4 h-4 text-indigo-400 absolute left-3.5 top-3" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                aria-label="Search books"
-                placeholder="Search by title, author, or ISBN..."
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-[#f7f6ff] border border-indigo-100 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
-              />
-            </div>
-            <div className="flex items-center gap-2.5 w-full md:w-auto">
-              <select
-                aria-label="Category"
-                value={cat}
-                onChange={(e) => setCat(e.target.value)}
-                className="px-3.5 py-2 bg-[#f7f6ff] border border-indigo-100 rounded-xl text-sm font-medium text-slate-700 flex-1 md:w-56 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
-              >
-                <option value="All">All categories</option>
-                {categories.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Sub-header Bar with Result Count & List/Grid Switcher */}
-          <div className="flex items-center justify-between mb-5 px-1">
-            <p className="text-xs sm:text-sm font-medium text-slate-700">
-              Showing{" "}
-              <span className="font-bold text-[#1f1635]">{visibleBooks.length} Results</span>
-            </p>
-            <div className="inline-flex items-center gap-1 bg-white/95 p-1 rounded-xl border border-indigo-100 shadow-2xs">
               <button
                 type="button"
-                onClick={() => setLayout("list")}
-                aria-label="List view"
-                title="Horizontal card view"
-                className={`p-1.5 rounded-lg transition ${
-                  isList
-                    ? "bg-[#1f1635] text-white shadow-xs"
-                    : "text-slate-500 hover:text-[#1f1635]"
-                }`}
+                onClick={() => setCartOpen(true)}
+                className="px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-xs font-bold text-amber-300 transition shrink-0"
               >
-                <LayoutList className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setLayout("grid")}
-                aria-label="Grid view"
-                title="Grid card view"
-                className={`p-1.5 rounded-lg transition ${
-                  !isList
-                    ? "bg-[#1f1635] text-white shadow-xs"
-                    : "text-slate-500 hover:text-[#1f1635]"
-                }`}
-              >
-                <LayoutGrid className="w-4 h-4" />
+                Bag ({totalCartBooks})
               </button>
             </div>
           </div>
 
-          {/* Book Cards */}
-          {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3, 4, 5, 6].map((n) => (
-                <div
-                  key={n}
-                  className="h-80 bg-white/90 rounded-2xl border border-indigo-100/70 p-4 animate-pulse"
-                />
-              ))}
-            </div>
-          ) : visibleBooks.length === 0 ? (
-            <div className="text-center bg-white/95 rounded-2xl border border-indigo-100 p-12">
-              <BookOpen className="w-10 h-10 text-indigo-300 mx-auto mb-3" />
-              <h3 className="font-semibold text-lg text-[#1f1635]">No books found</h3>
-              <p className="text-sm text-slate-500 mt-1">
-                {navTab === "saved"
-                  ? "Bookmark any book card to save it here."
-                  : "Try a different search or category."}
-              </p>
-            </div>
-          ) : (
-            <div
-              className={
-                isList
-                  ? "space-y-4"
-                  : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-              }
-            >
-              {visibleBooks.map((book) => {
-                const full = book.activeReaders >= CAP;
-                const override = isFaculty && full;
-                const theme = getBookTheme(book);
-                const isSaved = savedIds.includes(book.id);
+          {/* VIEW A: MY PRINT ORDERS TAB */}
+          {navTab === "orders" ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-extrabold text-[#1f1635]">
+                  My Confirmed Print Book Orders (FCFS)
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setNavTab("all")}
+                  className="text-xs font-bold text-indigo-700 hover:underline"
+                >
+                  + Browse More Books
+                </button>
+              </div>
 
-                return (
-                  <article
-                    key={book.id}
-                    className={`group bg-white/95 rounded-2xl border border-indigo-100/90 p-3.5 shadow-2xs hover:shadow-xl hover:shadow-indigo-950/10 hover:border-indigo-300 transition-all duration-300 ${
-                      isList
-                        ? "flex flex-row gap-3.5 sm:gap-5"
-                        : "flex flex-col justify-between gap-4 hover:-translate-y-1"
-                    }`}
-                  >
-                    <BookCover book={book} isList={isList} />
-
-                    <div className="flex-1 flex flex-col justify-between min-w-0">
-                      <div>
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          <span
-                            className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border truncate ${theme.badge}`}
-                          >
-                            {book.category}
+              {orders.length === 0 ? (
+                <div className="text-center bg-white/95 rounded-2xl border border-indigo-100 p-12">
+                  <Receipt className="w-10 h-10 text-indigo-300 mx-auto mb-3" />
+                  <h3 className="font-semibold text-lg text-[#1f1635]">No print orders yet</h3>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Select "Buy Print" on any book card to reserve physical copies with bulk discounts.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {orders.map((ord) => (
+                    <div
+                      key={ord.id}
+                      className="bg-white/95 rounded-2xl border border-indigo-100 p-5 shadow-2xs space-y-3"
+                    >
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <div>
+                          <span className="text-xs font-extrabold text-[#1f1635]">
+                            Order #{ord.id}
                           </span>
-                          {book.hasDigital && (
-                            <span
-                              className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${
-                                full
-                                  ? "bg-red-50 text-red-700"
-                                  : book.activeReaders >= 25
-                                  ? "bg-amber-50 text-amber-700"
-                                  : "bg-emerald-50 text-emerald-700"
-                              }`}
-                            >
-                              <Users className="w-3 h-3" />
-                              {book.activeReaders}/{CAP}
-                            </span>
-                          )}
+                          <p className="text-[11px] text-slate-500">
+                            ID: {ord.student_id} • {ord.department} • {ord.phone}
+                          </p>
                         </div>
-
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <h2
-                              className={`font-bold text-zinc-900 leading-snug group-hover:text-indigo-700 transition-colors ${
-                                isList ? "text-base sm:text-lg line-clamp-2" : "text-lg line-clamp-1"
-                              }`}
-                            >
-                              {book.title}
-                            </h2>
-                            <p className="text-xs text-slate-500 mt-0.5 truncate">
-                              by <span className="font-medium text-slate-700">{book.author}</span>
-                            </p>
-                          </div>
-
-                          {isList && (
-                            <div className="text-right shrink-0">
-                              <div className="text-base sm:text-lg font-extrabold text-zinc-900 leading-none">
-                                {book.priceBdt}{" "}
-                                <span className="text-[11px] font-bold text-slate-500">BDT</span>
-                              </div>
-                              <p className="text-[10px] text-emerald-600 font-semibold mt-1">
-                                Digital Free
-                              </p>
-                            </div>
-                          )}
-                        </div>
+                        <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold">
+                          {ord.status}
+                        </span>
                       </div>
 
-                      <div className="mt-3.5 pt-3 border-t border-slate-100 space-y-3">
-                        <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
-                          <div className="flex flex-wrap items-center gap-2.5">
-                            <span className="inline-flex items-center gap-1">
-                              <Layers className="w-3.5 h-3.5 text-slate-400" />
-                              {book.physicalCopies} copies
+                      <div className="space-y-1.5">
+                        {(ord.items || []).map((it) => (
+                          <div key={it.id} className="flex justify-between text-xs text-slate-700">
+                            <span className="truncate pr-2">
+                              {it.title} <strong>×{it.quantity}</strong>
                             </span>
-                            {book.hasDigital && (
-                              <span className="inline-flex items-center gap-1">
-                                <Clock className="w-3.5 h-3.5 text-slate-400" />
-                                4-day
-                              </span>
-                            )}
-                            {book.hasDigital && !isList && (
-                              <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
-                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                                Protected
-                              </span>
-                            )}
+                            <span className="font-semibold shrink-0">
+                              {(Number(it.unitPriceBdt) * Number(it.quantity)).toFixed(2)} BDT
+                            </span>
                           </div>
+                        ))}
+                      </div>
 
-                          {!isList && (
-                            <div className="text-right shrink-0">
-                              <span className="text-sm font-extrabold text-zinc-900">
-                                {book.priceBdt}{" "}
-                                <span className="text-[11px] font-bold text-slate-500">BDT</span>
-                              </span>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => toggleSave(book.id)}
-                            aria-label="Bookmark book"
-                            className={`p-2.5 rounded-xl border transition shrink-0 ${
-                              isSaved
-                                ? "bg-indigo-50 border-indigo-200 text-indigo-700"
-                                : "bg-white border-slate-200 text-slate-500 hover:text-zinc-900 hover:border-slate-300"
-                            }`}
-                          >
-                            <Bookmark className={`w-4 h-4 ${isSaved ? "fill-indigo-700" : ""}`} />
-                          </button>
-
-                          {book.hasDigital ? (
-                            <button
-                              onClick={() => readDigital(book)}
-                              disabled={busy === book.id || (full && !isFaculty)}
-                              className={`flex-1 py-2.5 px-3.5 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition shadow-xs ${
-                                override
-                                  ? "bg-amber-600 hover:bg-amber-700 text-white"
-                                  : full
-                                  ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                                  : "bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-indigo-600/20"
-                              }`}
-                            >
-                              {override ? (
-                                <>
-                                  <ShieldAlert className="w-4 h-4" />
-                                  Priority ({CAP}/{CAP})
-                                </>
-                              ) : full ? (
-                                `Full (${CAP}/${CAP})`
-                              ) : (
-                                <>
-                                  <Sparkles className="w-4 h-4" />
-                                  <span>{busy === book.id ? "Opening..." : "Read Digital"}</span>
-                                </>
-                              )}
-                            </button>
-                          ) : (
-                            <span className="flex-1 py-2.5 px-3 rounded-xl bg-slate-100 text-slate-500 text-xs font-semibold text-center">
-                              Physical Copy Only
-                            </span>
-                          )}
-                        </div>
+                      <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
+                        <span className="text-emerald-700 font-bold">
+                          Discount Applied: {ord.discount_percent}%
+                        </span>
+                        <span className="text-sm font-extrabold text-[#1f1635]">
+                          Total: {ord.final_total_bdt} BDT
+                        </span>
                       </div>
                     </div>
-                  </article>
-                );
-              })}
+                  ))}
+                </div>
+              )}
             </div>
+          ) : (
+            /* VIEW B: CATALOG GRID / LIST WITH DIGITAL READ + BUY PRINT */
+            <>
+              {/* Search & Category Filter Bar */}
+              <div className="bg-white/95 p-3 rounded-2xl border border-indigo-100/90 shadow-2xs mb-5 flex flex-col md:flex-row gap-3 items-center justify-between">
+                <div className="relative w-full md:flex-1">
+                  <Search className="w-4 h-4 text-indigo-400 absolute left-3.5 top-3" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    aria-label="Search books"
+                    placeholder="Search by title, author, or ISBN..."
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-[#f7f6ff] border border-indigo-100 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                  />
+                </div>
+                <div className="flex items-center gap-2.5 w-full md:w-auto">
+                  <select
+                    aria-label="Category"
+                    value={cat}
+                    onChange={(e) => setCat(e.target.value)}
+                    className="px-3.5 py-2 bg-[#f7f6ff] border border-indigo-100 rounded-xl text-sm font-medium text-slate-700 flex-1 md:w-56 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                  >
+                    <option value="All">All categories</option>
+                    {categories.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Sub-header Bar */}
+              <div className="flex items-center justify-between mb-5 px-1">
+                <p className="text-xs sm:text-sm font-medium text-slate-700">
+                  Showing{" "}
+                  <span className="font-bold text-[#1f1635]">{visibleBooks.length} Results</span>
+                </p>
+                <div className="inline-flex items-center gap-1 bg-white/95 p-1 rounded-xl border border-indigo-100 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setLayout("list")}
+                    aria-label="List view"
+                    className={`p-1.5 rounded-lg transition ${
+                      isList
+                        ? "bg-[#1f1635] text-white shadow-xs"
+                        : "text-slate-500 hover:text-[#1f1635]"
+                    }`}
+                  >
+                    <LayoutList className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLayout("grid")}
+                    aria-label="Grid view"
+                    className={`p-1.5 rounded-lg transition ${
+                      !isList
+                        ? "bg-[#1f1635] text-white shadow-xs"
+                        : "text-slate-500 hover:text-[#1f1635]"
+                    }`}
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Book Cards */}
+              {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {[1, 2, 3, 4, 5, 6].map((n) => (
+                    <div
+                      key={n}
+                      className="h-80 bg-white/90 rounded-2xl border border-indigo-100/70 p-4 animate-pulse"
+                    />
+                  ))}
+                </div>
+              ) : visibleBooks.length === 0 ? (
+                <div className="text-center bg-white/95 rounded-2xl border border-indigo-100 p-12">
+                  <BookOpen className="w-10 h-10 text-indigo-300 mx-auto mb-3" />
+                  <h3 className="font-semibold text-lg text-[#1f1635]">No books found</h3>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Try a different search or category.
+                  </p>
+                </div>
+              ) : (
+                <div
+                  className={
+                    isList
+                      ? "space-y-4"
+                      : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                  }
+                >
+                  {visibleBooks.map((book) => {
+                    const full = book.activeReaders >= CAP;
+                    const override = isFaculty && full;
+                    const theme = getBookTheme(book);
+                    const isSaved = savedIds.includes(book.id);
+                    const soldOut = Number(book.physicalCopies) <= 0;
+
+                    return (
+                      <article
+                        key={book.id}
+                        className={`group bg-white/95 rounded-2xl border border-indigo-100/90 p-3.5 shadow-2xs hover:shadow-xl hover:shadow-indigo-950/10 hover:border-indigo-300 transition-all duration-300 ${
+                          isList
+                            ? "flex flex-row gap-3.5 sm:gap-5"
+                            : "flex flex-col justify-between gap-4 hover:-translate-y-1"
+                        }`}
+                      >
+                        <BookCover book={book} isList={isList} />
+
+                        <div className="flex-1 flex flex-col justify-between min-w-0">
+                          <div>
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <span
+                                className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border truncate ${theme.badge}`}
+                              >
+                                {book.category}
+                              </span>
+                              {book.hasDigital && (
+                                <span
+                                  className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${
+                                    full
+                                      ? "bg-red-50 text-red-700"
+                                      : book.activeReaders >= 25
+                                      ? "bg-amber-50 text-amber-700"
+                                      : "bg-emerald-50 text-emerald-700"
+                                  }`}
+                                >
+                                  <Users className="w-3 h-3" />
+                                  {book.activeReaders}/{CAP}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <h2
+                                  className={`font-bold text-zinc-900 leading-snug group-hover:text-indigo-700 transition-colors ${
+                                    isList ? "text-base sm:text-lg line-clamp-2" : "text-lg line-clamp-1"
+                                  }`}
+                                >
+                                  {book.title}
+                                </h2>
+                                <p className="text-xs text-slate-500 mt-0.5 truncate">
+                                  by <span className="font-medium text-slate-700">{book.author}</span>
+                                </p>
+                              </div>
+
+                              {isList && (
+                                <div className="text-right shrink-0">
+                                  <div className="text-base sm:text-lg font-extrabold text-zinc-900 leading-none">
+                                    {book.priceBdt}{" "}
+                                    <span className="text-[11px] font-bold text-slate-500">BDT</span>
+                                  </div>
+                                  <p className="text-[10px] text-emerald-600 font-semibold mt-1">
+                                    Print Copy
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="mt-3.5 pt-3 border-t border-slate-100 space-y-3">
+                            <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
+                              <div className="flex flex-wrap items-center gap-2.5">
+                                <span
+                                  className={`inline-flex items-center gap-1 font-medium ${
+                                    soldOut ? "text-red-600" : "text-slate-600"
+                                  }`}
+                                >
+                                  <Layers className="w-3.5 h-3.5 text-slate-400" />
+                                  {soldOut ? "Sold Out" : `${book.physicalCopies} copies`}
+                                </span>
+                                {book.hasDigital && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                    4-day
+                                  </span>
+                                )}
+                                {book.hasDigital && !isList && (
+                                  <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
+                                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                                    Protected
+                                  </span>
+                                )}
+                              </div>
+
+                              {!isList && (
+                                <div className="text-right shrink-0">
+                                  <span className="text-sm font-extrabold text-zinc-900">
+                                    {book.priceBdt}{" "}
+                                    <span className="text-[11px] font-bold text-slate-500">BDT</span>
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Action Row: Bookmark + Read Digital + Buy Print (FCFS) */}
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => toggleSave(book.id)}
+                                aria-label="Bookmark book"
+                                className={`p-2.5 rounded-xl border transition shrink-0 ${
+                                  isSaved
+                                    ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                                    : "bg-white border-slate-200 text-slate-500 hover:text-zinc-900 hover:border-slate-300"
+                                }`}
+                              >
+                                <Bookmark className={`w-4 h-4 ${isSaved ? "fill-indigo-700" : ""}`} />
+                              </button>
+
+                              {book.hasDigital && (
+                                <button
+                                  onClick={() => readDigital(book)}
+                                  disabled={busy === book.id || (full && !isFaculty)}
+                                  className={`flex-1 py-2.5 px-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition shadow-xs ${
+                                    override
+                                      ? "bg-amber-600 hover:bg-amber-700 text-white"
+                                      : full
+                                      ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                      : "bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white"
+                                  }`}
+                                >
+                                  {override ? (
+                                    <>
+                                      <ShieldAlert className="w-3.5 h-3.5" />
+                                      <span>Priority</span>
+                                    </>
+                                  ) : full ? (
+                                    `Full (${CAP})`
+                                  ) : (
+                                    <>
+                                      <Sparkles className="w-3.5 h-3.5" />
+                                      <span>{busy === book.id ? "..." : "Read PDF"}</span>
+                                    </>
+                                  )}
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => addToCart(book)}
+                                disabled={soldOut}
+                                className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition shrink-0 ${
+                                  soldOut
+                                    ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                                    : "bg-amber-50 hover:bg-amber-500 text-amber-800 hover:text-white border-amber-200 hover:border-amber-500"
+                                }`}
+                                title="Order print copy (15% off on 2+, 25% off on 5+)"
+                              >
+                                <ShoppingBag className="w-3.5 h-3.5" />
+                                <span>{soldOut ? "Sold Out" : "Buy Print"}</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </main>
       </div>
